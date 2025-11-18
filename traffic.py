@@ -50,7 +50,7 @@ class TrafficMatrix:
     def line_5(self):
         ''' For the line_5.json
         '''
-        self.matrix[1][3] = 1
+        self.matrix[0][4] = 1
 
 
     def bottleneck_10(self):

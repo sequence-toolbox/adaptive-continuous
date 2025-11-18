@@ -22,12 +22,12 @@ from sequence.kernel.quantum_manager import BELL_DIAGONAL_STATE_FORMALISM
 
 
 class EntanglementSwappingA_bds(EntanglementProtocol):
-    """Entanglement swapping protocol for middle router.
+    """Entanglement swapping protocol for middle node/router.
 
     The entanglement swapping protocol is an asymmetric protocol.
     EntanglementSwappingA should be instantiated on the middle node,
         where it measures a memory from each pair to be swapped.
-    Results of measurement and swapping are sent to the end routers.
+    Results of measurement and swapping are sent to the end nodes.
 
     Variables:
         EntanglementSwappingA.circuit (Circuit): circuit that does swapping operations.
@@ -172,7 +172,7 @@ class EntanglementSwappingA_bds(EntanglementProtocol):
             List[float]: resultant bell diagonal state entries.
         """
 
-        assert self.owner.timeline.quantum_manager.formalism == BELL_DIAGONAL_STATE_FORMALISM, \
+        assert self.owner.timeline.quantum_manager.get_active_formalism() == BELL_DIAGONAL_STATE_FORMALISM, \
             "Input states should be Bell diagonal states."
 
         left_state = self.owner.timeline.quantum_manager.get(self.left_memo.qstate_key)
@@ -253,7 +253,7 @@ class EntanglementSwappingA_bds(EntanglementProtocol):
 
 
 class EntanglementSwappingB_bds(EntanglementProtocol):
-    """Entanglement swapping protocol for middle router.
+    """Entanglement swapping protocol for end node/router.
 
     The entanglement swapping protocol is an asymmetric protocol.
     EntanglementSwappingB should be instantiated on the end nodes, where it waits for swapping results from the middle node.

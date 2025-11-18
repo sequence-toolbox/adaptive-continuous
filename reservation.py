@@ -385,24 +385,24 @@ class ResourceReservationProtocolAdaptive(ResourceReservationProtocol):
             rules.append(rule)
             priority += 1
 
-        # 2. create rules for entanglement purification
-        if index > 0:                  # non initiator
-            condition_args = {"memory_indices": memory_indices[:reservation.memory_size], "reservation": reservation}
-            action_args = {"encoding_type": "single_heralded"}
-            rule = Rule(priority, ep_rule_action1_adaptive, ep_rule_condition1, action_args, condition_args)
-            rules.append(rule)
-            priority += 1
+        # # 2. create rules for entanglement purification
+        # if index > 0:                  # non initiator
+        #     condition_args = {"memory_indices": memory_indices[:reservation.memory_size], "reservation": reservation}
+        #     action_args = {"encoding_type": "single_heralded"}
+        #     rule = Rule(priority, ep_rule_action1_adaptive, ep_rule_condition1, action_args, condition_args)
+        #     rules.append(rule)
+        #     priority += 1
 
-        if index < len(path) - 1:      # non responder
-            if index == 0:
-                condition_args = {"memory_indices": memory_indices, "fidelity": reservation.fidelity}
-            else:
-                condition_args = {"memory_indices": memory_indices[reservation.memory_size:], "fidelity": reservation.fidelity}
+        # if index < len(path) - 1:      # non responder
+        #     if index == 0:
+        #         condition_args = {"memory_indices": memory_indices, "fidelity": reservation.fidelity}
+        #     else:
+        #         condition_args = {"memory_indices": memory_indices[reservation.memory_size:], "fidelity": reservation.fidelity}
 
-            action_args = {"encoding_type": "single_heralded"}
-            rule = Rule(priority, ep_rule_action2_adaptive, ep_rule_condition2, action_args, condition_args)
-            rules.append(rule)
-            priority += 1
+        #     action_args = {"encoding_type": "single_heralded"}
+        #     rule = Rule(priority, ep_rule_action2_adaptive, ep_rule_condition2, action_args, condition_args)
+        #     rules.append(rule)
+        #     priority += 1
 
         # 3. create rules for entanglement swapping
         if index == 0:                 # initiator
@@ -473,16 +473,16 @@ class ResourceReservationProtocolAdaptive(ResourceReservationProtocol):
             msg.qcaps.append(qcap)
             path = [qcap.node for qcap in msg.qcaps]
             if self.schedule(msg.reservation):   # schedule success
-                if self.owner.name == msg.reservation.responder:
+                if self.owner.name == msg.reservation.responder: # this node is the responder
                     rules = self.create_rules_request(path, reservation=msg.reservation)
                     self.load_rules(rules, msg.reservation)
                     msg.reservation.set_path(path)
                     new_msg = ResourceReservationMessage(RSVPMsgType.APPROVE, self.name, msg.reservation, path=path)
                     self._pop(msg=msg)
                     self._push(dst=None, msg=new_msg, next_hop=src)
-                else:                            # schedule failed
+                else:                                            # this node is an intermediate node (not responder)
                     self._push(dst=msg.reservation.responder, msg=msg)
-            else:
+            else:                                # schedule failed
                 new_msg = ResourceReservationMessage(RSVPMsgType.REJECT, self.name, msg.reservation, path=path)
                 self._push(dst=None, msg=new_msg, next_hop=src)
         elif msg.msg_type == RSVPMsgType.REJECT:

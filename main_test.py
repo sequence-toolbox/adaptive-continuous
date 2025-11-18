@@ -489,12 +489,12 @@ def app_2_node_line_request2_queue():
 # the request type-2 app, testing on a five node linear network, for time-to-serve
 def app_5_node_line_request2_queue():
 
-    purify = True
+    purify = False
 
     network_config = 'config/line_5.json'
 
     # log_filename = 'log/linear_adaptive'
-    log_filename = 'log/queue_tts/line5,qmem=1,update=true'
+    log_filename = 'log/queue_tts/line5,qmem=0'
 
     network_topo = RouterNetTopoAdaptive(network_config)
     
@@ -502,8 +502,8 @@ def app_5_node_line_request2_queue():
 
     log.set_logger(__name__, tl, log_filename)
     log.set_logger_level('DEBUG')
-    # modules = ['request_app', 'swapping', 'rule_manager', 'resource_manager', 'generation', 'memory', 'main_test', 'purification', 'bsm']
-    modules = ['main_test']
+    modules = ['request_app', 'swapping', 'rule_manager', 'network_manager', 'resource_manager', 'timeline', 'generation', 'memory', 'main_test', 'bsm']
+    # modules = ['main_test']
     for module in modules:
         log.track_module(module)
 
@@ -514,14 +514,17 @@ def app_5_node_line_request2_queue():
         # if router.name not in ['router_4', 'router_5']:
         #     router.active = False
         router.adaptive_continuous.has_empty_neighbor = True
-        router.adaptive_continuous.update_prob = True
+        router.adaptive_continuous.update_prob = False
         router.resource_manager.purify = purify
 
-    mem_size = 1
+    REQUEST_PERIOD = 0.1 # seconds, request incoming rate, assuming reqeust arrives one by one
+    DELTA = 0.02
+    mem_size = 5
     num_nodes = len(name_to_apps)
     traffic_matrix = TrafficMatrix(num_nodes)
     traffic_matrix.line_5()
-    request_queue = traffic_matrix.get_request_queue_tts(request_period=1, end_time=10, memo_size=mem_size, fidelity=0.7, entanglement_number=1)
+    request_queue = []
+    request_queue = traffic_matrix.get_request_queue_tts(request_queue=request_queue, request_period=REQUEST_PERIOD, delta=DELTA, start_time = 0, end_time=0.1, memo_size=mem_size, fidelity=0.7, entanglement_number=1, seed=0)
     for request in request_queue[:]:
         id, src_name, dst_name, start_time, end_time, memo_size, fidelity, entanglement_number = request
         app = name_to_apps[src_name]
@@ -761,12 +764,17 @@ if __name__ == '__main__':
     # app_2_node_line_request2_queue()
 
     # app_5_node_linear_adaptive(verbose)
-    # app_5_node_line_request2_queue()
+
+    app_5_node_line_request2_queue()
 
     # app_5_node_star_adaptive(verbose)
     # app_10_node_bottleneck_adaptive(verbose)
     # app_10_node_bottleneck_request_queue()
-    app_10_node_bottleneck_request2_queue()
+
+
+    # app_10_node_bottleneck_request2_queue()
+    
+    
     # app_20_node_as_request2_queue()
     # app_100_node_as_request2_queue()
 

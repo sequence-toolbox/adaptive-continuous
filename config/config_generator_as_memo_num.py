@@ -24,10 +24,10 @@ random.seed(SEED)
 
 
 '''
-python config/config_generator_as_memo_num.py 20 0 1 1 10 1 0.0002 1 -d config -o as_20.json -s 10
+python config/config_generator_as_memo_num.py 20 0 1 10 1 0.0002 1 -d config -o as_20_test.json -s 10
 python config/draw_topo.py config/as_20.json -d config -f as_20
 
-python config/config_generator_as_memo_num.py 200 0 1 1 10 10 0.0002 1 -d config -o as_200.json -s 110
+python config/config_generator_as_memo_num.py 200 0 1 10 10 0.0002 1 -d config -o as_200.json -s 110
 
 
 '''
@@ -130,26 +130,20 @@ def get_partition(graph, GROUP_NUM, node_memo_size):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('net_size', type=int, help="net_size (int) – Number of routers")
-parser.add_argument('seed', type=int, help="seed (int) – Indicator of random number generation state. ")
-parser.add_argument('group_n', type=int, help="group_n (int) - Number of groups for parallel simulation")
+parser.add_argument('net_size', type=int, help="net_size (int) - Number of routers")
+parser.add_argument('seed', type=int, help="seed (int) - Indicator of random number generation state")
 parser.add_argument('alpha', type=int, help="alpha for exponential distribution of flows")
 parser = add_default_args(parser)
 args = parser.parse_args()
 
 NET_SIZE = args.net_size
 NET_SEED = args.seed
-GROUP_NUM = args.group_n
 ALPHA = args.alpha
 FLOW_MEMO_SIZE = args.memo_size
 QC_LEN = args.qc_length
 QC_ATT = args.qc_atten
 CC_DELAY = args.cc_delay
-if args.parallel:
-    IP = args.parallel[0]
-    PORT = int(args.parallel[1])
-    LOOKAHEAD = int(args.parallel[4])
-    assert int(args.parallel[2]) == GROUP_NUM
+
 
 graph = nx.random_internet_as_graph(NET_SIZE, NET_SEED)
 paths = []
@@ -276,25 +270,13 @@ output_dict[Topology.ALL_TEMPLATES] = \
 
 node_procs = {}
 
-if args.nodes:
-    # TODO: add length/proc assertions
-    df = pd.read_csv(args.nodes)
-    for name, group in zip(df['name'], df['group']):
-        node_procs[name] = group
-else:
-    groups = get_partition(graph, int(GROUP_NUM), node_memo_size)
-    for i, g in enumerate(groups):
-        for name in g:
-            node_procs[name] = i
-
 template = 'adaptive_protocol'
 
-router_names = list(node_procs.keys())
+router_names = [router_name_func(i) for i in range(NET_SIZE)]
 nodes = [{Topology.NAME: name,
           Topology.TYPE: RouterNetTopo.QUANTUM_ROUTER,
           Topology.SEED: i,
           RouterNetTopo.MEMO_ARRAY_SIZE: node_memo_size[name],
-          RouterNetTopo.GROUP: node_procs[name],
           RouterNetTopo.TEMPLATE: template}
          for i, name in enumerate(router_names)]
 

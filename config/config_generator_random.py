@@ -29,7 +29,7 @@ import random
 from networkx.generators.geometric import waxman_graph
 from typing import Tuple
 
-from sequence.utils.config_generator import add_default_args, get_node_csv, generate_node_procs, generate_nodes, final_config, router_name_func
+from sequence.utils.config_generator import add_default_args, generate_nodes, final_config, router_name_func
 from sequence.topology.topology import Topology
 from sequence.topology.router_net_topo import RouterNetTopo
 
@@ -76,6 +76,8 @@ def create_random_waxman(area_length: int, number_nodes: int, edge_density: floa
     return V, E
 
 
+# python config/config_generator_random.py 10 10 10 0.0002 1 -d config -o random_10.json -s 10
+
 def random_network():
     # parse args
     parser = argparse.ArgumentParser()
@@ -93,13 +95,8 @@ def random_network():
 
     output_dict = {}
 
-    # get node names, processes
-    if args.nodes:
-        node_procs = get_node_csv(args.nodes)
-    else:
-        node_procs = generate_node_procs(args.parallel, args.net_size, router_name_func)
-    router_names = list(node_procs.keys())
-    nodes = generate_nodes(node_procs, router_names, args.memo_size)
+    router_names = [router_name_func(i) for i in range(net_size)]
+    nodes = generate_nodes(router_names, args.memo_size)
 
     # 1. generate quantum links and bsm nodes
     qchannels = []
@@ -117,8 +114,7 @@ def random_network():
         bsm_name = "BSM_{}_{}".format(node1_name, node2_name)
         bsm_node = {Topology.NAME: bsm_name,
                     Topology.TYPE: RouterNetTopo.BSM_NODE,
-                    Topology.SEED: seed,
-                    RouterNetTopo.GROUP: node_procs[node1_name]}
+                    Topology.SEED: seed}
         bsm_nodes.append(bsm_node)
 
         # qchannels
