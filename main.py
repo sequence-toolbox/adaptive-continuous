@@ -54,7 +54,7 @@ def main():
     log_filename = f'{log_directory}/{topology}{node},ma={memory_adaptive},up={update_prob},ns={node_seed},qs={queue_seed},s={strategy},pf={purify}'
     log.set_logger(__name__, tl, log_filename)
     log.set_logger_level('DEBUG')
-    modules = ['main', 'purification', 'memory', 'generation', 'swapping', 'resource_manager']
+    # modules = ['main', 'purification', 'memory', 'generation', 'swapping', 'resource_manager']
     modules = ['main']
     for module in modules:
         log.track_module(module)

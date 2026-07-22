@@ -2,9 +2,10 @@
 '''
 
 from typing import TYPE_CHECKING, List, Tuple, Dict, Any
-from sequence.network_management.reservation import ResourceReservationProtocol, Reservation, ResourceReservationMessage, QCap, RSVPMsgType
+from sequence.network_management.rsvp import RSVPProtocol, Reservation, RSVPMessage, QCap, RSVPMsgType
 from sequence.resource_management.rule_manager import Rule
-from sequence.network_management.reservation import eg_rule_condition, ep_rule_condition1, ep_rule_condition2, es_rule_conditionB1, es_rule_conditionA, es_rule_conditionB2
+from sequence.resource_management.action_condition_set import (
+    eg_rule_condition, es_rule_condition_B_end, es_rule_condition_A, es_rule_condition_B)
 from sequence.kernel.event import Event
 from sequence.kernel.process import Process
 from sequence.resource_management.memory_manager import MemoryInfo
@@ -247,7 +248,7 @@ class ReservationAdaptive(Reservation):
 
 
 
-class ResourceReservationProtocolAdaptive(ResourceReservationProtocol):
+class ResourceReservationProtocolAdaptive(RSVPProtocol):
     '''ReservationProtocol for node resources customized for adaptive-continuous protocol
     '''
 
@@ -408,14 +409,14 @@ class ResourceReservationProtocolAdaptive(ResourceReservationProtocol):
         if index == 0:                 # initiator
             condition_args = {"memory_indices": memory_indices, "target_remote": path[-1], "fidelity": reservation.fidelity}
             action_args = {"encoding_type": "single_heralded"}
-            rule = Rule(priority, es_rule_actionB_adaptive, es_rule_conditionB1, action_args, condition_args)
+            rule = Rule(priority, es_rule_actionB_adaptive, es_rule_condition_B_end, action_args, condition_args)
             rules.append(rule)
             priority += 1
 
         elif index == len(path) - 1:   # responder
             action_args = {"encoding_type": "single_heralded"}
             condition_args = {"memory_indices": memory_indices, "target_remote": path[0], "fidelity": reservation.fidelity}
-            rule = Rule(priority, es_rule_actionB_adaptive, es_rule_conditionB1, action_args, condition_args)
+            rule = Rule(priority, es_rule_actionB_adaptive, es_rule_condition_B_end, action_args, condition_args)
             rules.append(rule)
             priority += 1
 
@@ -432,12 +433,12 @@ class ResourceReservationProtocolAdaptive(ResourceReservationProtocol):
 
             condition_args = {"memory_indices": memory_indices, "left": left, "right": right, "fidelity": reservation.fidelity}
             action_args = {"es_succ_prob": self.es_succ_prob, "es_degradation": self.es_degradation, "encoding_type": "single_heralded", "is_twirled": True}
-            rule = Rule(priority, es_rule_actionA_adaptive, es_rule_conditionA, action_args, condition_args)
+            rule = Rule(priority, es_rule_actionA_adaptive, es_rule_condition_A, action_args, condition_args)
             rules.append(rule)
             priority += 1
 
             action_args = {"encoding_type": "single_heralded"}
-            rule = Rule(priority, es_rule_actionB_adaptive, es_rule_conditionB2, action_args, condition_args)
+            rule = Rule(priority, es_rule_actionB_adaptive, es_rule_condition_B, action_args, condition_args)
             rules.append(rule)
             priority += 1
 
@@ -477,13 +478,13 @@ class ResourceReservationProtocolAdaptive(ResourceReservationProtocol):
                     rules = self.create_rules_request(path, reservation=msg.reservation)
                     self.load_rules(rules, msg.reservation)
                     msg.reservation.set_path(path)
-                    new_msg = ResourceReservationMessage(RSVPMsgType.APPROVE, self.name, msg.reservation, path=path)
+                    new_msg = RSVPMessage(RSVPMsgType.APPROVE, self.name, msg.reservation, path=path)
                     self._pop(msg=msg)
                     self._push(dst=None, msg=new_msg, next_hop=src)
                 else:                                            # this node is an intermediate node (not responder)
                     self._push(dst=msg.reservation.responder, msg=msg)
             else:                                # schedule failed
-                new_msg = ResourceReservationMessage(RSVPMsgType.REJECT, self.name, msg.reservation, path=path)
+                new_msg = RSVPMessage(RSVPMsgType.REJECT, self.name, msg.reservation, path=path)
                 self._push(dst=None, msg=new_msg, next_hop=src)
         elif msg.msg_type == RSVPMsgType.REJECT:
             for card in self.timecards:

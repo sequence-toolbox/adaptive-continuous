@@ -15,7 +15,7 @@ from sequence.topology.node import Node
 from sequence.message import Message
 from sequence.entanglement_management.entanglement_protocol import EntanglementProtocol
 from sequence.utils import log
-from sequence.kernel.quantum_manager import BELL_DIAGONAL_STATE_FORMALISM
+from sequence.constants import BELL_DIAGONAL_STATE_FORMALISM
 
 
 class BBPSSWMsgType(Enum):

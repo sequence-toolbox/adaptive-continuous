@@ -16,7 +16,7 @@ from sequence.components.circuit import Circuit
 from sequence.kernel.event import Event
 from sequence.kernel.process import Process
 from sequence.resource_management.memory_manager import MemoryInfo, MemoryManager
-from sequence.kernel.quantum_manager import BELL_DIAGONAL_STATE_FORMALISM
+from sequence.constants import BELL_DIAGONAL_STATE_FORMALISM
 
 if TYPE_CHECKING:
     from adaptive_continuous import AdaptiveContinuousProtocol

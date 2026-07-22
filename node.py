@@ -4,9 +4,8 @@
 import numpy as np
 from typing import List
 from sequence.topology.node import QuantumRouter, BSMNode
-from sequence.network_management.routing import StaticRoutingProtocol
+from sequence.network_management.forwarding import ForwardingProtocol
 from sequence.kernel.timeline import Timeline
-from sequence.network_management.network_manager import NetworkManager
 from sequence.utils import log
 from sequence.message import Message
 
@@ -24,33 +23,28 @@ class QuantumRouterAdaptive(QuantumRouter):
     '''
     def __init__(self, name: str, tl: Timeline, memo_size: int = 50, seed: int = None, component_templates: dict = None, gate_fidelity: float = 1, measurement_fidelity: float = 1):
         super().__init__(name, tl, memo_size, seed, component_templates, gate_fidelity, measurement_fidelity)
+
+        # re-establish managers
+        # setup resource manager
+        self.resource_manager = ResourceManagerAdaptive(self, self.memo_arr_name)
+
+        # setup network manager
+        forwarding_protocol = ForwardingProtocol(self, f'{self.owner.name}.ForwardingProtocol')
+        rsvp_protocol = ResourceReservationProtocolAdaptive(self, f'{self.name}.RSVP', self.memo_arr_name)
+        forwarding_protocol.upper_protocols.append(rsvp_protocol)
+        rsvp_protocol.lower_protocols.append(forwarding_protocol)
+
+        # network_manager.load_stack([routing_protocol, rsvp_protocol])
+        # self.set_network_manager(network_manager)
+        self.network_manager.load_stack([forwarding_protocol, rsvp_protocol])
+
+        # add adaptive
         adaptive_name = f'{self.name}.adaptive_continuous'
         adaptive_max_memory = component_templates['adaptive_max_memory']
         resource_reservation = self.network_manager.protocol_stack[-1]  # reference to the network manager's resource reservation protocol
         self.adaptive_continuous = AdaptiveContinuousProtocol(self, adaptive_name, adaptive_max_memory, resource_reservation)
         self.active = True
         self.seed = seed
-
-    def init_managers(self, memo_arr_name: str):
-        '''override QuantumRouter.init_manager()
-           init the resource mansger and network manager
-        Args:
-            memo_arr_name: the name of the memory array
-        '''
-        # setup resource manager
-        resource_manager = ResourceManagerAdaptive(self, memo_arr_name)
-        self.set_resource_manager(resource_manager)
-
-        # setup network manager
-        swapping_success_rate = 1
-        network_manager = NetworkManager(self, [])
-        routing_protocol = StaticRoutingProtocol(self, f'{self.name}.StaticRoutingProtocol', {})
-        rsvp_protocol = ResourceReservationProtocolAdaptive(self, f'{self.name}.RSVP', memo_arr_name)
-        rsvp_protocol.set_swapping_success_rate(swapping_success_rate)
-        routing_protocol.upper_protocols.append(rsvp_protocol)
-        rsvp_protocol.lower_protocols.append(routing_protocol)
-        network_manager.load_stack([routing_protocol, rsvp_protocol])
-        self.set_network_manager(network_manager)
 
     def init(self):
         '''start the Adaptive-continuous protocol

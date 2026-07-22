@@ -188,7 +188,7 @@ class AdaptiveContinuousProtocol(Protocol):
         '''initialize the probability table computed from the static routing protocols' forwarding table
         '''
         probability_table = {}
-        forwarding_table = self.owner.network_manager.protocol_stack[0].get_forwarding_table()
+        forwarding_table = self.owner.network_manager.get_forwarding_table()
         neighbors = []
         for dst, next_hop in forwarding_table.items():
             if dst == next_hop:  # it is a neighbor when the destination equals the next hop in the forwarding table
