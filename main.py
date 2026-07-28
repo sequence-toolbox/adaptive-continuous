@@ -8,11 +8,13 @@ from collections import defaultdict
 import sequence.utils.log as log
 from sequence.constants import MILLISECOND, SECOND
 from sequence.entanglement_management.generation.generation_base import EntanglementGenerationA, EntanglementGenerationB
+from sequence.entanglement_management.purification.bbpssw_protocol import BBPSSWProtocol
 
 from router_net_topo_adaptive import RouterNetTopoAdaptive
 from request_app import RequestAppTimeToServe
 from traffic import TrafficMatrix
-from generation import BARRET_KOK_ADAPTIVE, SINGLE_HERALDED_ADAPTIVE
+from generation import SINGLE_HERALDED_ADAPTIVE
+from purification import BBPSSW_ADAPTIVE
 
 
 def main():
@@ -27,7 +29,6 @@ def main():
     parser.add_argument('-pf', '--purify', action='store_true', help='enable purification')
     parser.add_argument('-d', '--log_directory', type=str, default='log', help='the directory of the log')
     parser.add_argument('-s', '--strategy', type=str, default='freshest', help='the strategy of selecting one of the multiple entanglement pairs')
-    parser.add_argument('-sh', '--single_heralded', action='store_true', help='whether to use single heralded, default is barret-kok entanglement')
 
     args = parser.parse_args()
     topology = args.topology
@@ -41,12 +42,9 @@ def main():
     log_directory   = args.log_directory
     strategy        = args.strategy
 
-    if args.single_heralded:
-        EntanglementGenerationA.set_global_type(SINGLE_HERALDED_ADAPTIVE)
-        EntanglementGenerationB.set_global_type(SINGLE_HERALDED_ADAPTIVE)
-    else:
-        EntanglementGenerationA.set_global_type(BARRET_KOK_ADAPTIVE)
-        EntanglementGenerationB.set_global_type(BARRET_KOK_ADAPTIVE)
+    EntanglementGenerationA.set_global_type(SINGLE_HERALDED_ADAPTIVE)
+    EntanglementGenerationB.set_global_type(SINGLE_HERALDED_ADAPTIVE)
+    BBPSSWProtocol.set_formalism(BBPSSW_ADAPTIVE)
 
     if not os.path.exists(log_directory):
         os.mkdir(log_directory)
