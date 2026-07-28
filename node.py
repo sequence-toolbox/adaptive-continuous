@@ -4,15 +4,14 @@
 import numpy as np
 from typing import List
 from sequence.topology.node import QuantumRouter, BSMNode
-from sequence.network_management.forwarding import ForwardingProtocol
 from sequence.kernel.timeline import Timeline
 from sequence.utils import log
 from sequence.message import Message
+from sequence.entanglement_management.generation.generation_base import EntanglementGenerationB
 
 from resource_manager import ResourceManagerAdaptive
-from reservation import ResourceReservationProtocolAdaptive
 from adaptive_continuous import AdaptiveContinuousProtocol
-from generation import EntanglementGenerationBadaptive, GenerationMsgType, ShEntanglementGenerationBadaptive
+from generation import GenerationMsgType
 
 
 class QuantumRouterAdaptive(QuantumRouter):
@@ -27,16 +26,6 @@ class QuantumRouterAdaptive(QuantumRouter):
         # re-establish managers
         # setup resource manager
         self.resource_manager = ResourceManagerAdaptive(self, self.memo_arr_name)
-
-        # setup network manager
-        forwarding_protocol = ForwardingProtocol(self, f'{self.owner.name}.ForwardingProtocol')
-        rsvp_protocol = ResourceReservationProtocolAdaptive(self, f'{self.name}.RSVP', self.memo_arr_name)
-        forwarding_protocol.upper_protocols.append(rsvp_protocol)
-        rsvp_protocol.lower_protocols.append(forwarding_protocol)
-
-        # network_manager.load_stack([routing_protocol, rsvp_protocol])
-        # self.set_network_manager(network_manager)
-        self.network_manager.load_stack([forwarding_protocol, rsvp_protocol])
 
         # add adaptive
         adaptive_name = f'{self.name}.adaptive_continuous'
@@ -125,12 +114,7 @@ class BSMNodeAdaptive(BSMNode):
         bsm_name = name + ".BSM"
         bsm = self.components[bsm_name]
         bsm.detach(self.eg)
-        if self.encoding_type == 'single_atom':
-            self.eg = EntanglementGenerationBadaptive(self, "{}_eg".format(name), other_nodes)
-        elif self.encoding_type == 'single_heralded':
-            self.eg = ShEntanglementGenerationBadaptive(self, "{}_eg".format(name), other_nodes)
-        else:
-            raise ValueError(f'encoding type {self.encoding_type} not supported')
+        self.eg = EntanglementGenerationB.create(self, "{}_eg".format(name), other_nodes)
         bsm.attach(self.eg)
 
     def set_seed(self, seed: int) -> None:

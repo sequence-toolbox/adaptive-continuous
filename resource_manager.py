@@ -282,7 +282,7 @@ class ResourceManagerAdaptive(ResourceManager):
         """
         rules = []
         memory_indices = []
-        for card in self.timecards:  # check which timecard includes the reservation
+        for card in timecards:  # check which timecard includes the reservation
             if reservation in card.reservations:
                 memory_indices.append(card.memory_index)
 

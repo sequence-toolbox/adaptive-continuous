@@ -20,11 +20,12 @@ from sequence.constants import MILLISECOND, SECOND, EPSILON
 from sequence.components.memory import Memory
 from sequence.network_management.reservation import Reservation
 
-from purification import BBPSSW_bds
-from reservation import ResourceReservationProtocolAdaptive, ReservationAdaptive
+from purification import BBPSSW_BDS_Adaptive
+from reservation import ReservationAdaptive
 
 if TYPE_CHECKING:
     from sequence.resource_management.rule_manager import Rule
+    from sequence.network_management.rsvp import RSVPProtocol
     from node import QuantumRouterAdaptive
     from resource_manager import ResourceManagerAdaptive
 
@@ -90,7 +91,7 @@ class AdaptiveContinuousProtocol(Protocol):
         has_empty_neighbor (bool): whether the probability table has empty neighbor
     '''
 
-    def __init__(self, owner: "QuantumRouterAdaptive", name: str, adaptive_max_memory: int, resource_reservation: ResourceReservationProtocolAdaptive, period: int = SECOND):
+    def __init__(self, owner: "QuantumRouterAdaptive", name: str, adaptive_max_memory: int, resource_reservation: RSVPProtocol, period: int = SECOND):
         super().__init__(owner, name)
         self.adaptive_max_memory = adaptive_max_memory
         self.adaptive_memory_used = 0
@@ -240,8 +241,11 @@ class AdaptiveContinuousProtocol(Protocol):
                     log.logger.debug(f'{self.owner.name} adaptive_memory_used is increased from {self.adaptive_memory_used} to {self.adaptive_memory_used + 1}')
                     self.adaptive_memory_used += 1
                     path = [src, self.owner.name]  # path only has two nodes
-                    rules = self.resource_reservation.create_rules_adaptive(path, reservation)
-                    self.resource_reservation.load_rules_adaptive(rules, reservation)
+                    # rules = self.resource_reservation.create_rules_adaptive(path, reservation)
+                    # self.resource_reservation.load_rules_adaptive(rules, reservation)
+                    self.owner.resource_manager.generate_load_rules_adaptive(path, reservation,
+                                                                             self.owner.network_manager.timecards,
+                                                                             self.owner.network_manager.memory_array_name)
                     reservation.set_path(path)
                     new_msg = AdaptiveContinuousMessage(ACMsgType.RESPOND, msg.reservation, answer=True, path=path)
                 else:                                                  # no available quantum memory
@@ -255,8 +259,11 @@ class AdaptiveContinuousProtocol(Protocol):
                 log.logger.debug(f'{self.owner.name} not going to establish entanglement link {self.owner.name}-{src}; adaptive_memory_used is decreased from {self.adaptive_memory_used} to {self.adaptive_memory_used - 1}')
                 self.adaptive_memory_used -= 1
             else:                             # neighbor has available memory
-                rules = self.resource_reservation.create_rules_adaptive(msg.path, msg.reservation)
-                self.resource_reservation.load_rules_adaptive(rules, msg.reservation)
+                # rules = self.resource_reservation.create_rules_adaptive(msg.path, msg.reservation)
+                # self.resource_reservation.load_rules_adaptive(rules, msg.reservation)
+                self.owner.resource_manager.generate_load_rules_adaptive(msg.reservation.path, msg.reservation,
+                                                                         self.owner.network_manager.timecards,
+                                                                         self.owner.network_manager.memory_array_name)
                 log.logger.info(f'{self.owner.name} attempting to establish entanglement link {self.owner.name}-{src}')
             self.start_delay(delay = self.delay_remote_response)
         
@@ -525,7 +532,7 @@ class AdaptiveContinuousProtocol(Protocol):
             return None
 
 
-    def create_purification_protocol(self, entanglement_pair: tuple, entanglement_pair2: tuple, rule: "Rule") -> BBPSSW_bds:
+    def create_purification_protocol(self, entanglement_pair: tuple, entanglement_pair2: tuple, rule: "Rule") -> BBPSSW_BDS_Adaptive:
         '''given two entanglement pairs, create the purification protocol and pair it directly 
         (instead of creating the purification through rules and pairing in the resource management)
         
@@ -547,7 +554,7 @@ class AdaptiveContinuousProtocol(Protocol):
         name = "EP_bds.{}.{}".format(this_memory1_name, this_memory2_name)
         this_memory1: Memory = self.owner.timeline.get_entity_by_name(this_memory1_name)  # kept memory
         this_memory2: Memory = self.owner.timeline.get_entity_by_name(this_memory2_name)  # meas memory
-        purification_protocol = BBPSSW_bds(self.owner, name, this_memory1, this_memory2)
+        purification_protocol = BBPSSW_BDS_Adaptive(self.owner, name, this_memory1, this_memory2)
         # update memory observer and memory info
         this_memory1.detach(this_memory1.memory_array)   # set observer
         this_memory1.attach(purification_protocol)

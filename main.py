@@ -42,9 +42,9 @@ def main():
     log_directory   = args.log_directory
     strategy        = args.strategy
 
+    # set formalism
     EntanglementGenerationA.set_global_type(SINGLE_HERALDED_ADAPTIVE)
     EntanglementGenerationB.set_global_type(SINGLE_HERALDED_ADAPTIVE)
-    BBPSSWProtocol.set_formalism(BBPSSW_ADAPTIVE)
 
     if not os.path.exists(log_directory):
         os.mkdir(log_directory)
