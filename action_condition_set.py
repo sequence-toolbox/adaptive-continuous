@@ -1,44 +1,38 @@
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, TYPE_CHECKING
 from sequence.resource_management.memory_manager import MemoryInfo
-from sequence.resource_management.rule_manager import Arguments
-from sequence.entanglement_management.entanglement_protocol import EntanglementProtocol
 
-from generation import EntanglementGenerationAadaptive, ShEntanglementGenerationAadaptive
+from sequence.entanglement_management.generation.generation_base import EntanglementGenerationA
+from sequence.resource_management.action_condition_set import Arguments, RequestFunction, ActionReturn, TempMemory, TempNode
+
 from swapping import EntanglementSwappingA_bds, EntanglementSwappingB_bds
 from sequence.entanglement_management.swapping import EntanglementSwappingA, EntanglementSwappingB
 from purification import BBPSSW_bds
 from sequence.entanglement_management.purification.bbpssw_circuit import BBPSSWCircuit
 
+if TYPE_CHECKING:
+    from sequence.components.memory import Memory
+    from sequence.entanglement_management.entanglement_protocol import EntanglementProtocol
+
 
 # 1. entanglement generation #
 
-def eg_rule_action_await_adaptive(memories_info: List["MemoryInfo"], args: Dict[str, Any]) -> \
-        Tuple[EntanglementGenerationAadaptive | ShEntanglementGenerationAadaptive, List[None], List[None], List[None]]:
+def eg_rule_action_await_adaptive(memories_info: list[MemoryInfo], args: Arguments) -> ActionReturn:
     """Action function used by entanglement generation protocol on nodes except the initiator, i.e., index > 0
     """
-    memories = [info.memory for info in memories_info]
+    memories: list[Memory] = [info.memory for info in memories_info]
     memory = memories[0]
     mid = args["mid"]
     path = args["path"]
     index = args["index"]
     from_app_request = args["from_app_request"]
-    encoding_type = args["encoding_type"]
-    if encoding_type == "single_atom":
-        protocol_name = "EGAa." + memory.name
-        protocol = EntanglementGenerationAadaptive(None, protocol_name, mid, path[index - 1], memory, from_app_request)
-    elif encoding_type == "single_heralded":
-        protocol_name = "ShEGAa." + memory.name
-        raw_epr_errors = args["raw_epr_errors"]
-        protocol = ShEntanglementGenerationAadaptive(None, protocol_name, mid, path[index - 1], memory,
-                                                     from_app_request, raw_epr_errors)
-    else:
-        raise ValueError(f'encoding type {encoding_type} not supported yet')
+    protocol = EntanglementGenerationA.create(owner=TempNode, name=f"EGA.{memory.name}",
+                                              middle=mid, other=path[index - 1], memory=memory,
+                                              from_app_request=from_app_request)
+
     return protocol, [None], [None], [None]
 
 
-def eg_rule_action_request_adaptive(memories_info: List["MemoryInfo"], args: Arguments) -> \
-        Tuple[EntanglementGenerationAadaptive | ShEntanglementGenerationAadaptive, List[str], List[
-            "eg_match_func_adaptive"], List[Dict]]:
+def eg_rule_action_request_adaptive(memories_info: list[MemoryInfo], args: Arguments) -> ActionReturn:
     """Action function used by entanglement generation protocol on nodes except the responder, i.e., index < len(path) - 1
     """
     mid = args["mid"]
@@ -47,23 +41,14 @@ def eg_rule_action_request_adaptive(memories_info: List["MemoryInfo"], args: Arg
     memories = [info.memory for info in memories_info]
     memory = memories[0]
     from_app_request = args["from_app_request"]
-    encoding_type = args["encoding_type"]
-    if encoding_type == "single_atom":
-        protocol_name = "EGAa." + memory.name
-        protocol = EntanglementGenerationAadaptive(None, protocol_name, mid, path[index + 1], memory, from_app_request)
-    elif encoding_type == "single_heralded":
-        protocol_name = "ShEGAa." + memory.name
-        raw_epr_errors = args["raw_epr_errors"]
-        protocol = ShEntanglementGenerationAadaptive(None, protocol_name, mid, path[index + 1], memory,
-                                                     from_app_request, raw_epr_errors)
-    else:
-        raise ValueError(f'encoding type {encoding_type} not supported yet')
+    protocol = EntanglementGenerationA.create(owner=TempNode, name=f"EGA.{memory.name}",
+                                              middle=mid, other=path[index + 1], memory=memory,
+                                              from_app_request=from_app_request)
     req_args = {"name": args["name"], "reservation": args["reservation"]}
     return protocol, [path[index + 1]], [eg_match_func_adaptive], [req_args]
 
 
-def eg_match_func_adaptive(protocols: List["EntanglementProtocol"],
-                           args: Arguments) -> EntanglementGenerationAadaptive | ShEntanglementGenerationAadaptive | None:
+def eg_match_func_adaptive(protocols: list[EntanglementProtocol], args: Arguments) -> EntanglementGenerationA | None:
     """Function used by `eg_rule_action2` function for selecting generation protocols on the remote node
     Args:
         protocols: the waiting protocols (wait for request)
@@ -74,7 +59,7 @@ def eg_match_func_adaptive(protocols: List["EntanglementProtocol"],
     name = args["name"]
     reservation = args["reservation"]
     for protocol in protocols:
-        if (isinstance(protocol, EntanglementGenerationAadaptive | ShEntanglementGenerationAadaptive)
+        if (isinstance(protocol, EntanglementGenerationA)
                 and protocol.remote_node_name == name
                 and protocol.rule.get_reservation() == reservation):
             return protocol
