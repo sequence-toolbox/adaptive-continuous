@@ -7,10 +7,12 @@ from collections import defaultdict
 
 import sequence.utils.log as log
 from sequence.constants import MILLISECOND, SECOND
+from sequence.entanglement_management.generation.generation_base import EntanglementGenerationA, EntanglementGenerationB
 
 from router_net_topo_adaptive import RouterNetTopoAdaptive
 from request_app import RequestAppTimeToServe
 from traffic import TrafficMatrix
+from generation import BARRET_KOK_ADAPTIVE, SINGLE_HERALDED_ADAPTIVE
 
 
 def main():
@@ -22,9 +24,10 @@ def main():
     parser.add_argument('-qs', '--queue_seed', type=int, default=0, help='related to the random seed of the queue')
     parser.add_argument('-ma', '--memory_adaptive', type=int, default=5, help='number of memory per node used by the adaptive continuous protocol')
     parser.add_argument('-up', '--update_prob', action='store_true', help='whether to update the probability table or not')
-    parser.add_argument('-pf', '--purify', action='store_true', help='whether anable purification')
+    parser.add_argument('-pf', '--purify', action='store_true', help='enable purification')
     parser.add_argument('-d', '--log_directory', type=str, default='log', help='the directory of the log')
     parser.add_argument('-s', '--strategy', type=str, default='freshest', help='the strategy of selecting one of the multiple entanglement pairs')
+    parser.add_argument('-sh', '--single_heralded', action='store_true', help='whether to use single heralded, default is barret-kok entanglement')
 
     args = parser.parse_args()
     topology = args.topology
@@ -38,7 +41,14 @@ def main():
     log_directory   = args.log_directory
     strategy        = args.strategy
 
-    if os.path.exists(log_directory) is False:
+    if args.single_heralded:
+        EntanglementGenerationA.set_global_type(SINGLE_HERALDED_ADAPTIVE)
+        EntanglementGenerationB.set_global_type(SINGLE_HERALDED_ADAPTIVE)
+    else:
+        EntanglementGenerationA.set_global_type(BARRET_KOK_ADAPTIVE)
+        EntanglementGenerationB.set_global_type(BARRET_KOK_ADAPTIVE)
+
+    if not os.path.exists(log_directory):
         os.mkdir(log_directory)
 
     ##### 
@@ -90,9 +100,9 @@ def main():
     traffic_matrix.get_request_queue_tts(request_queue=request_queue, request_period=REQUEST_PERIOD, delta=DELTA, start_time=time/2, end_time=time, memo_size=1, fidelity=0.01, entanglement_number=1, seed=queue_seed)
 
     for request in request_queue:
-        id, src_name, dst_name, start_time, end_time, memo_size, fidelity, entanglement_number = request
+        request_id, src_name, dst_name, start_time, end_time, memo_size, fidelity, entanglement_number = request
         app = name_to_apps[src_name]
-        app.start(dst_name, start_time, end_time, memo_size, fidelity, entanglement_number, id)
+        app.start(dst_name, start_time, end_time, memo_size, fidelity, entanglement_number, request_id)
 
     tl.init()
     tl.run()
