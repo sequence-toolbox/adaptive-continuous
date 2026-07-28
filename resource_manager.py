@@ -5,24 +5,27 @@ from typing import TYPE_CHECKING, Optional
 
 from sequence.resource_management.resource_manager import ResourceManager
 from sequence.entanglement_management.entanglement_protocol import EntanglementProtocol
+from sequence.entanglement_management.generation.generation_base import EntanglementGenerationA
+from sequence.entanglement_management.purification.bbpssw_protocol import BBPSSWProtocol
 from sequence.components.memory import Memory
 from sequence.resource_management.memory_manager import MemoryInfo
 from sequence.utils import log
 from sequence.network_management.reservation import Reservation
 from sequence.resource_management.rule_manager import Arguments
 from sequence.resource_management.resource_manager import RequestConditionFunc, ResourceManagerMsgType, ResourceManagerMessage
+from sequence.resource_management.action_condition_set import eg_rule_condition
 from sequence.kernel.process import Process
 from sequence.kernel.event import Event
 from sequence.resource_management.rule_manager import Rule
 
-from generation import EntanglementGenerationAadaptive, ShEntanglementGenerationAadaptive
 from memory_manager import MemoryManagerAdaptive
 from reservation import ReservationAdaptive
 from adaptive_continuous import AdaptiveContinuousProtocol, AdaptiveContinuousMessage, ACMsgType
-from purification import BBPSSW_bds
+from action_condition_set import eg_rule_action_request_adaptive, eg_rule_action_await_adaptive
 
 if TYPE_CHECKING:
     from node import QuantumRouterAdaptive
+    from sequence.network_management.memory_timecard import MemoryTimeCard
 
 
 class ResourceManagerAdaptive(ResourceManager):
@@ -71,7 +74,7 @@ class ResourceManagerAdaptive(ResourceManager):
                 protocol.rule.protocols.remove(protocol)
 
             # let the AC protocol track this entanglement link
-            if isinstance(protocol, EntanglementGenerationAadaptive | ShEntanglementGenerationAadaptive) and state == MemoryInfo.ENTANGLED: # entanglement succeed
+            if isinstance(protocol, EntanglementGenerationA) and state == MemoryInfo.ENTANGLED: # entanglement succeed
                 if isinstance(protocol.rule.reservation, ReservationAdaptive): # Adaptive Continuous Protocol's reservation
                     adaptive_continuous = self.get_adaptive_continuous_protocol()
                     entanglement_pair = ((self.owner.name, memory.name), (memory.entangled_memory['node_id'], memory.entangled_memory['memo_id']))
@@ -101,11 +104,10 @@ class ResourceManagerAdaptive(ResourceManager):
                                 raise Exception('Program should not run to here')
 
             # let the AC protocol track the purified kept memory
-            if self.purify and isinstance(protocol, BBPSSW_bds) and state == MemoryInfo.ENTANGLED:
+            if self.purify and isinstance(protocol, BBPSSWProtocol) and state == MemoryInfo.ENTANGLED:
                 adaptive_continuous = self.get_adaptive_continuous_protocol()
                 entanglement_pair = ((self.owner.name, memory.name), (memory.entangled_memory['node_id'], memory.entangled_memory['memo_id']))
                 adaptive_continuous.add_generated_entanglement_pair(entanglement_pair)
-
 
         if protocol in self.owner.protocols:
             self.owner.protocols.remove(protocol)
@@ -127,7 +129,6 @@ class ResourceManagerAdaptive(ResourceManager):
                 return
 
         self.owner.get_idle_memory(memo_info)
-
 
     def expire(self, rule: "Rule") -> None:
         """Method to remove expired rule.
@@ -152,7 +153,7 @@ class ResourceManagerAdaptive(ResourceManager):
             elif protocol in self.owner.protocols:
                 self.owner.protocols.remove(protocol)
             else:
-                if isinstance(protocol, BBPSSW_bds):
+                if isinstance(protocol, BBPSSWProtocol):
                     log.logger.info(f'Purification protocol {protocol} to be removed is located on the neighbor node')
                     continue
                 else:
@@ -160,7 +161,6 @@ class ResourceManagerAdaptive(ResourceManager):
 
             for memory in protocol.memories:
                 self.update(protocol, memory, MemoryInfo.RAW)
-
 
     def send_request(self, protocol: "EntanglementProtocol", req_dst: Optional[str], req_condition_func: RequestConditionFunc, req_args: Arguments):
         """Override. Method to send protocol request to another node.
@@ -186,10 +186,9 @@ class ResourceManagerAdaptive(ResourceManager):
         msg = ResourceManagerMessage(ResourceManagerMsgType.REQUEST, protocol=protocol.name, node=self.owner.name,
                                      memories=memo_names, req_condition_func=req_condition_func, req_args=req_args)
         self.owner.send_message(req_dst, msg)
-        if isinstance(protocol, EntanglementGenerationAadaptive | ShEntanglementGenerationAadaptive) and req_dst is not None:
+        if isinstance(protocol, EntanglementGenerationA) and req_dst is not None:
             protocol.node_send_resource_management_request = True  # to decrease the time spend on resource manager pairing
         log.logger.debug("{} send {} message to {}".format(self.owner.name, msg.msg_type.name, req_dst))
-
 
     def update_swap_memory(self, protocol: "EntanglementProtocol", memory: "Memory") -> None:
         """Method to update state of memory after completion of entanglement management protocol.
@@ -233,12 +232,10 @@ class ResourceManagerAdaptive(ResourceManager):
 
         self.owner.get_idle_memory(memo_info)  # no new rules apply to this memory, thus "idle"
 
-
     def get_adaptive_continuous_protocol(self) -> AdaptiveContinuousProtocol:
         '''return the adaptive continuous protocol
         '''
         return self.owner.adaptive_continuous
-
 
     def swap_two_memory(self, occupied_memory_name: str, entangled_memory_name: str):
         '''swap two quantum memories
@@ -249,7 +246,6 @@ class ResourceManagerAdaptive(ResourceManager):
         '''
         self.memory_manager.swap_two_memory(occupied_memory_name, entangled_memory_name)
 
-
     def check_entangled_memory(self, entangled_memory_name: str) -> bool:
         '''return True if the memory by parameter entangled_memory_name is indeed entangled, otherwise False
         
@@ -257,7 +253,6 @@ class ResourceManagerAdaptive(ResourceManager):
             entangled_memory_name: the name of the memory being checked
         '''
         return self.memory_manager.check_entangled_memory(entangled_memory_name)
-
 
     def expire_rules_by_reservation(self, reservation: Reservation) -> None:
         '''expire rules created by the reservation
@@ -272,3 +267,72 @@ class ResourceManagerAdaptive(ResourceManager):
         
         for rule in rule_to_expire:
             self.expire(rule)
+
+    def generate_load_rules_adaptive(self, path: list[str], reservation: ReservationAdaptive, timecards: list[MemoryTimeCard], memory_array_name: str):
+        """Method to create rules for entanglement generation (only) for a successful AC protocol's request.
+
+        Rules are used to direct the flow of information/entanglement in the resource manager.
+
+        Args:
+            path (List[str]): list of node names in entanglement path.
+            reservation (Reservation): approved reservation.
+
+        Returns:
+            List[Rule]: list of rules created by the method.
+        """
+        rules = []
+        memory_indices = []
+        for card in self.timecards:  # check which timecard includes the reservation
+            if reservation in card.reservations:
+                memory_indices.append(card.memory_index)
+
+        index = path.index(self.owner.name)  # the location of this node along the path from initiator to responder
+
+        priority = 20
+        # create rules for entanglement generation
+        if index > 0:
+            condition_args = {"memory_indices": memory_indices[:reservation.memory_size]}
+            action_args = {"mid": self.owner.map_to_middle_node[path[index - 1]], "path": path, "index": index,
+                           "from_app_request": False,
+                           "encoding_type": "single_heralded", "raw_epr_errors": [1 / 3, 1 / 3, 1 / 3]}
+            rule = Rule(priority, eg_rule_action_await_adaptive, eg_rule_condition, action_args, condition_args)
+            rules.append(rule)
+            priority += 1
+
+        if index < len(path) - 1:
+            if index == 0:
+                condition_args = {"memory_indices": memory_indices[:reservation.memory_size]}
+            else:
+                condition_args = {"memory_indices": memory_indices[reservation.memory_size:]}
+
+            action_args = {"mid": self.owner.map_to_middle_node[path[index + 1]],
+                           "path": path, "index": index, "name": self.owner.name, "reservation": reservation,
+                           "from_app_request": False,
+                           "encoding_type": "single_heralded", "raw_epr_errors": [1 / 3, 1 / 3, 1 / 3]}
+            rule = Rule(10, eg_rule_action_request_adaptive, eg_rule_condition, action_args, condition_args)
+            rules.append(rule)
+            priority += 1
+
+        for rule in rules:
+            rule.set_reservation(reservation)
+
+        for rule in rules:
+            process = Process(self.owner.resource_manager, "load", [rule])
+            event = Event(reservation.start_time, process)
+            self.owner.timeline.schedule(event)
+
+            process = Process(self.owner.resource_manager, "expire", [rule])
+            event = Event(reservation.end_time, process, self.owner.timeline.schedule_counter)
+            self.owner.timeline.schedule(event)
+
+        for card in timecards:
+            if reservation in card.reservations:
+                process = Process(self.owner.resource_manager, "update",
+                                  [None, self.owner.components[memory_array_name][card.memory_index], "RAW"]) # update memory to RAW
+                event = Event(reservation.end_time, process, self.owner.timeline.schedule_counter)
+                self.owner.timeline.schedule(event)
+
+                process = Process(self.owner.adaptive_continuous, "adaptive_memory_used_minus_one",
+                                  [self.owner.components[memory_array_name][card.memory_index]])
+                event = Event(reservation.end_time, process, self.owner.timeline.schedule_counter)
+                self.owner.timeline.schedule(event)
