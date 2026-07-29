@@ -57,7 +57,8 @@ class QuantumRouterAdaptive(QuantumRouter):
             self.adaptive_continuous.received_message(src, msg)
         else:
             if msg.receiver is None:  # the msg sent by EntanglementGenerationB doesn't have a receiver (A-B not paired)
-                matching = [p for p in self.protocols if type(p) == msg.protocol_type]
+                # matching = [p for p in self.protocols if type(p) == msg.protocol_type]
+                matching = [p for p in self.protocols if p.protocol_type == msg.protocol_type]
                 for p in matching:
                     p.received_message(src, msg)
             else:

@@ -1,6 +1,6 @@
 """Modified version for entanglement generation"""
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Any
 from enum import Enum, auto
 
 from sequence.topology.node import Node
@@ -15,10 +15,12 @@ from sequence.message import Message
 from sequence.kernel.event import Event
 from sequence.kernel.process import Process
 from sequence.resource_management.memory_manager import MemoryInfo, MemoryManager
+from sequence.constants import SINGLE_HERALDED
 
 if TYPE_CHECKING:
     from adaptive_continuous import AdaptiveContinuousProtocol
     from router_net_topo_adaptive import QuantumRouterAdaptive
+    from sequence.components.bsm import SingleHeraldedBSM
 
 
 # custom generation types
@@ -158,6 +160,7 @@ class BarretKokAAdaptive(BarretKokA):
 
             if self.primary:
                 if not self.from_app_request:   # EGA protocol is generated from the adaptive continuous protocol
+                    log.logger.debug(f"{self.name} protocol adaptive start")
                     self.qc_delay = self.owner.qchannels[self.middle].delay          # send NEGOTIATE message as normal
                     frequency = self.memory.frequency
                     message = EntanglementGenerationMessage(GenerationMsgType.NEGOTIATE,
@@ -581,11 +584,28 @@ class SingleHeraldedAAdaptive(SingleHeraldedA):
             return
 
         # update memory, and if necessary start negotiations for round
-        if self.update_memory():
-            if self.primary:
+        if self.update_memory() and self.primary:
 
-                if not self.from_app_request:   # EGA protocol is generated from the adaptive continuous protocol
-                    self.qc_delay = self.owner.qchannels[self.middle].delay          # send NEGOTIATE message as normal
+            if not self.from_app_request:   # EGA protocol is generated from the adaptive continuous protocol
+                log.logger.debug(f"{self.name} protocol adaptive start")
+                self.qc_delay = self.owner.qchannels[self.middle].delay          # send NEGOTIATE message as normal
+                frequency = self.memory.frequency
+                message = EntanglementGenerationMessage(GenerationMsgType.NEGOTIATE,
+                                                        self.remote_protocol_name,
+                                                        protocol_type=self.protocol_type,
+                                                        qc_delay=self.qc_delay,
+                                                        frequency=frequency)
+                self.owner.send_message(self.remote_node_name, message)
+
+            else:                                # EGA protocol is generated from the request
+                adaptive_continuous: AdaptiveContinuousProtocol = self.owner.adaptive_continuous         # first check if there is pre-generated entanglement pair
+                this_node_name = self.owner.name
+                remote_node_name = self.remote_node_name
+                matched_entanglement_pair = adaptive_continuous.match_generated_entanglement_pair(this_node_name, remote_node_name)
+
+                if matched_entanglement_pair is None:                        # no pre-generated entanglement pair
+                    log.logger.debug(f"{self.name} protocol no pre-generated entanglement pair")
+                    self.qc_delay = self.owner.qchannels[self.middle].delay  # send NEGOTIATE message as normal
                     frequency = self.memory.frequency
                     message = EntanglementGenerationMessage(GenerationMsgType.NEGOTIATE,
                                                             self.remote_protocol_name,
@@ -594,37 +614,23 @@ class SingleHeraldedAAdaptive(SingleHeraldedA):
                                                             frequency=frequency)
                     self.owner.send_message(self.remote_node_name, message)
 
-                else:                                # EGA protocol is generated from the request
-                    adaptive_continuous: AdaptiveContinuousProtocol = self.owner.adaptive_continuous         # first check if there is pre-generated entanglement pair
-                    this_node_name = self.owner.name
-                    remote_node_name = self.remote_node_name
-                    matched_entanglement_pair = adaptive_continuous.match_generated_entanglement_pair(this_node_name, remote_node_name)
-                    if matched_entanglement_pair is None:                        # no pre-generated entanglement pair
-                        self.qc_delay = self.owner.qchannels[self.middle].delay  # send NEGOTIATE message as normal
-                        frequency = self.memory.frequency
-                        message = EntanglementGenerationMessage(GenerationMsgType.NEGOTIATE,
-                                                                self.remote_protocol_name,
-                                                                protocol_type=self.protocol_type,
-                                                                qc_delay=self.qc_delay,
-                                                                frequency=frequency)
-                        self.owner.send_message(self.remote_node_name, message)
-                    else:                                                        # has pre-generated entanglement pair
-                        log.logger.info(f'{this_node_name} match pre-generated entanglement pair {matched_entanglement_pair}')
-                        adaptive_continuous.remove_entanglement_pair(matched_entanglement_pair)
-                        msg = EntanglementGenerationMessage(GenerationMsgType.INFORM_EP,
-                                                            self.remote_protocol_name,
-                                                            protocol_type=self.protocol_type,
-                                                            entanglement_pair=matched_entanglement_pair,)
-                        self.owner.send_message(self.remote_node_name, msg)
-                        # swap the memory at a future time
-                        entangled_memory_name = self.get_entanglement_memory_name(matched_entanglement_pair)
-                        classical_delay = self.owner.cchannels[self.remote_node_name].delay
-                        future_swap_time = self.owner.timeline.now() + classical_delay
-                        occupied_memory_name = self.memory.name
-                        process = Process(self, 'swap_two_memory', [occupied_memory_name, entangled_memory_name])
-                        event = Event(future_swap_time, process)
-                        self.owner.timeline.schedule(event)
-                        self.scheduled_events.append(event)
+                else:                                                        # has pre-generated entanglement pair
+                    log.logger.info(f'{this_node_name} match pre-generated entanglement pair {matched_entanglement_pair}')
+                    adaptive_continuous.remove_entanglement_pair(matched_entanglement_pair)
+                    msg = EntanglementGenerationMessage(GenerationMsgType.INFORM_EP,
+                                                        self.remote_protocol_name,
+                                                        protocol_type=self.protocol_type,
+                                                        entanglement_pair=matched_entanglement_pair,)
+                    self.owner.send_message(self.remote_node_name, msg)
+                    # swap the memory at a future time
+                    entangled_memory_name = self.get_entanglement_memory_name(matched_entanglement_pair)
+                    classical_delay = self.owner.cchannels[self.remote_node_name].delay
+                    future_swap_time = self.owner.timeline.now() + classical_delay
+                    occupied_memory_name = self.memory.name
+                    process = Process(self, 'swap_two_memory', [occupied_memory_name, entangled_memory_name])
+                    event = Event(future_swap_time, process)
+                    self.owner.timeline.schedule(event)
+                    self.scheduled_events.append(event)
 
 
     def get_entanglement_memory_name(self, entanglement_pair: tuple) -> str:
@@ -858,3 +864,22 @@ class SingleHeraldedBAdaptive(SingleHeraldedB):
 
         super().__init__(owner, name, others)
         self.protocol_type = SINGLE_HERALDED_ADAPTIVE
+
+    def bsm_update(self, bsm: SingleHeraldedBSM, info: dict[str, Any]) -> None:
+        """Method to receive detection events from BSM on node.
+
+        Args:
+            bsm (SingleAtomBSM or SingleHeraldedBSM): bsm object calling method.
+            info (dict[str, any]): information passed from bsm.
+        """
+        assert bsm.encoding == SINGLE_HERALDED, "SingleHeraldedB should only be used with SingleHeraldedBSM."
+        assert info['info_type'] == 'BSM_res'
+
+        res = info['res']
+        time = info['time']
+        resolution = bsm.resolution
+
+        for node in self.others:
+            message = EntanglementGenerationMessage(GenerationMsgType.MEAS_RES, None, self.protocol_type,
+                                                    detector=res, time=time, resolution=resolution)
+            self.owner.send_message(node, message)
