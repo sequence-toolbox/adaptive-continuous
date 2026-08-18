@@ -6,9 +6,10 @@ import os
 from collections import defaultdict
 
 import sequence.utils.log as log
-from sequence.constants import MILLISECOND, SECOND
+from sequence.constants import MILLISECOND, SECOND, BELL_DIAGONAL_STATE_FORMALISM
 from sequence.entanglement_management.generation.generation_base import EntanglementGenerationA, EntanglementGenerationB
 from sequence.entanglement_management.purification.bbpssw_protocol import BBPSSWProtocol
+from sequence.entanglement_management.swapping.swapping_base import EntanglementSwappingA, EntanglementSwappingB
 
 from router_net_topo_adaptive import RouterNetTopoAdaptive
 from request_app import RequestAppTimeToServe
@@ -45,6 +46,9 @@ def main():
     # set formalism
     EntanglementGenerationA.set_global_type(SINGLE_HERALDED_ADAPTIVE)
     EntanglementGenerationB.set_global_type(SINGLE_HERALDED_ADAPTIVE)
+    BBPSSWProtocol.set_formalism(BBPSSW_ADAPTIVE)
+    EntanglementSwappingA.set_formalism(BELL_DIAGONAL_STATE_FORMALISM)
+    EntanglementSwappingB.set_formalism(BELL_DIAGONAL_STATE_FORMALISM)
 
     if not os.path.exists(log_directory):
         os.mkdir(log_directory)
@@ -87,15 +91,16 @@ def main():
     request_queue = []
     
     # for the line2 toplogy
-    # traffic_matrix = TrafficMatrix(node)
-    # traffic_matrix.set(topology, node)
-    # request_queue = traffic_matrix.get_request_queue_tts(request_queue=request_queue, request_period=REQUEST_PERIOD, delta=DELTA, start_time=0, end_time=time, memo_size=1, fidelity=0.01, entanglement_number=1, seed=queue_seed)
-
-    # for bottleneck and AS topology, update the traffic patter in at half time
-    traffic_matrix.set(topology, node, seed=0)
-    traffic_matrix.get_request_queue_tts(request_queue=request_queue, request_period=REQUEST_PERIOD, delta=DELTA, start_time=0,      end_time=time/2, memo_size=1, fidelity=0.01, entanglement_number=1, seed=queue_seed)
-    traffic_matrix.set(topology, node, seed=1)
-    traffic_matrix.get_request_queue_tts(request_queue=request_queue, request_period=REQUEST_PERIOD, delta=DELTA, start_time=time/2, end_time=time, memo_size=1, fidelity=0.01, entanglement_number=1, seed=queue_seed)
+    if topology == 'line':
+        traffic_matrix = TrafficMatrix(node)
+        traffic_matrix.set(topology, node)
+        request_queue = traffic_matrix.get_request_queue_tts(request_queue=request_queue, request_period=REQUEST_PERIOD, delta=DELTA, start_time=0, end_time=time, memo_size=1, fidelity=0.01, entanglement_number=1, seed=queue_seed)
+    # for bottleneck and AS topology, update the traffic pattern in at half time
+    else:
+        traffic_matrix.set(topology, node, seed=0)
+        traffic_matrix.get_request_queue_tts(request_queue=request_queue, request_period=REQUEST_PERIOD, delta=DELTA, start_time=0,      end_time=time/2, memo_size=1, fidelity=0.01, entanglement_number=1, seed=queue_seed)
+        traffic_matrix.set(topology, node, seed=1)
+        traffic_matrix.get_request_queue_tts(request_queue=request_queue, request_period=REQUEST_PERIOD, delta=DELTA, start_time=time/2, end_time=time, memo_size=1, fidelity=0.01, entanglement_number=1, seed=queue_seed)
 
     for request in request_queue:
         request_id, src_name, dst_name, start_time, end_time, memo_size, fidelity, entanglement_number = request
@@ -114,9 +119,6 @@ def main():
     for reservation, time_to_serve in sorted(time_to_serve_dict.items()):
         fidelity = fidelity_dict[reservation][0]
         log.logger.info(f'reservation={reservation}, time to serve={time_to_serve / MILLISECOND}, fidelity={fidelity:.6f}')
-
-
-
 
 
 if __name__ == '__main__':
