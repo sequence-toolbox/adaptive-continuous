@@ -522,7 +522,7 @@ class BarretKokBAdaptive(BarretKokB):
         self.protocol_type = BARRET_KOK_ADAPTIVE
 
 
-@EntanglementGenerationA.register('single_heralded_adaptive')
+@EntanglementGenerationA.register(SINGLE_HERALDED_ADAPTIVE)
 class SingleHeraldedAAdaptive(SingleHeraldedA):
     """Single heralded entanglement generation protocol for quantum router.
 
@@ -840,7 +840,7 @@ class SingleHeraldedAAdaptive(SingleHeraldedA):
             raise Exception("Invalid message {} received by EG on node {}".format(msg_type, self.owner.name))
 
 
-@EntanglementGenerationB.register('single_heralded_adaptive')
+@EntanglementGenerationB.register(SINGLE_HERALDED_ADAPTIVE)
 class SingleHeraldedBAdaptive(SingleHeraldedB):
     """Single heralded entanglement generation protocol for BSM node.
 

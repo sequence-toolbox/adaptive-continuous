@@ -108,5 +108,5 @@
         }
     ],
     "stop_time": 10000000000000,
-    "formalism": "ket_vector"
+    "formalism": "bell_diagonal"
 }

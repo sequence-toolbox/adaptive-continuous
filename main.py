@@ -15,7 +15,7 @@ from router_net_topo_adaptive import RouterNetTopoAdaptive
 from request_app import RequestAppTimeToServe
 from traffic import TrafficMatrix
 from generation import SINGLE_HERALDED_ADAPTIVE
-from purification import BBPSSW_ADAPTIVE
+from purification import BBPSSW_BDS_ADAPTIVE
 
 
 def main():
@@ -43,10 +43,11 @@ def main():
     log_directory   = args.log_directory
     strategy        = args.strategy
 
-    # set formalism
+    # set formalisms for entanglement protocols
+    # formalisms need to be set before the network topology is created for EntanglementGenerationB
     EntanglementGenerationA.set_global_type(SINGLE_HERALDED_ADAPTIVE)
     EntanglementGenerationB.set_global_type(SINGLE_HERALDED_ADAPTIVE)
-    BBPSSWProtocol.set_formalism(BBPSSW_ADAPTIVE)
+    BBPSSWProtocol.set_formalism(BBPSSW_BDS_ADAPTIVE)
     EntanglementSwappingA.set_formalism(BELL_DIAGONAL_STATE_FORMALISM)
     EntanglementSwappingB.set_formalism(BELL_DIAGONAL_STATE_FORMALISM)
 
