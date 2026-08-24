@@ -9,13 +9,33 @@ from sequence.components.memory import Memory
 from sequence.topology.node import Node
 from sequence.entanglement_management.purification.bbpssw_protocol import BBPSSWMessage, BBPSSWMsgType, BBPSSWProtocol
 from sequence.entanglement_management.purification.bbpssw_bds import BBPSSW_BDS
+from sequence.entanglement_management.purification.bbpssw_circuit import BBPSSWCircuit
 from sequence.utils import log
 
 
-# custom purification type
-BBPSSW_ADAPTIVE = 'bbpssw_bds_adaptive'
+# custom purification types
+BBPSSW_BDS_ADAPTIVE = 'bbpssw_bds_adaptive'
+BBPSSW_CIRCUIT_ADAPTIVE = 'bbpssw_circuit_adaptive'
 
-@BBPSSWProtocol.register(BBPSSW_ADAPTIVE)
+
+@BBPSSWProtocol.register(BBPSSW_CIRCUIT_ADAPTIVE)
+class BBPSSW_Circuit_Adaptive(BBPSSWCircuit):
+    def __init__(self, owner: Node, name: str, kept_memo: Memory, meas_memo: Memory):
+        super().__init__(owner, name, kept_memo, meas_memo)
+        self.protocol_type = BBPSSW_CIRCUIT_ADAPTIVE
+
+    def received_message(self, src: str, msg: BBPSSWMessage) -> None:
+        # check the status of entanglement
+        if self.meas_memo.entangled_memory['node_id'] is None or self.kept_memo.entangled_memory['node_id'] is None:
+            log.logger.info(f'No entanglement for {self.meas_memo} or {self.kept_memo}.')
+            # when the AC Protocol expires, the purification protocol on the primary node will get removed, but the purification protocol on the non-primary node is still there
+            self.owner.protocols.remove(self)
+            return
+
+        super().received_message(src, msg)
+
+
+@BBPSSWProtocol.register(BBPSSW_BDS_ADAPTIVE)
 class BBPSSW_BDS_Adaptive(BBPSSW_BDS):
     """Purification protocol instance.
 
@@ -46,7 +66,7 @@ class BBPSSW_BDS_Adaptive(BBPSSW_BDS):
             is_twirled (bool): Whether we twirl the input and output BDS. True: BBPSSW, False: DEJMPS. (default True)
         """
         super().__init__(owner, name, kept_memo, meas_memo, is_twirled)
-        self.protocol_type = BBPSSW_ADAPTIVE
+        self.protocol_type = BBPSSW_BDS_ADAPTIVE
 
     def received_message(self, src: str, msg: BBPSSWMessage) -> None:
         """Method to receive messages.
@@ -64,27 +84,6 @@ class BBPSSW_BDS_Adaptive(BBPSSW_BDS):
             log.logger.info(f'No entanglement for {self.meas_memo} or {self.kept_memo}.')
             # when the AC Protocol expires, the purification protocol on the primary node will get removed, but the purification protocol on the non-primary node is still there
             self.owner.protocols.remove(self)
-            return 
+            return
 
-        if msg.msg_type == BBPSSWMsgType.PURIFICATION_RES:
-
-            purification_success = (self.meas_res == msg.meas_res)
-            log.logger.info(self.owner.name + f'received result message, succeeded={purification_success}')
-            assert src == self.remote_node_name
-
-            self.update_resource_manager(self.meas_memo, "RAW")
-
-            if purification_success:
-                log.logger.info(f'Purification success, measurement results: {self.meas_res}, {msg.meas_res}')
-                remote_kept_memory_name = self.remote_memories[0]
-                remote_kept_memory: Memory = self.owner.timeline.get_entity_by_name(remote_kept_memory_name)
-                remote_kept_memory.bds_decohere()
-                self.kept_memo.bds_decohere()
-                self.kept_memo.fidelity = self.kept_memo.get_bds_fidelity()
-                self.update_resource_manager(self.kept_memo, state="ENTANGLED")
-            else:
-                log.logger.info(f'Purification failed because measure results: {self.meas_res}, {msg.meas_res}')
-                self.update_resource_manager(self.kept_memo, state="RAW")
-
-        else:
-            raise Exception(f'{msg.msg_type} unknown')
+        super().received_message(src, msg)
