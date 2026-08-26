@@ -104,7 +104,7 @@ class ResourceManagerAdaptive(ResourceManager):
                                 raise Exception('Program should not run to here')
 
             # let the AC protocol track the purified kept memory
-            if self.purify and isinstance(protocol, BBPSSWProtocol) and state == MemoryInfo.ENTANGLED:
+            if self.purify and isinstance(protocol, BBPSSWProtocol) and state == MemoryInfo.PURIFIED:
                 adaptive_continuous = self.get_adaptive_continuous_protocol()
                 entanglement_pair = ((self.owner.name, memory.name), (memory.entangled_memory['node_id'], memory.entangled_memory['memo_id']))
                 adaptive_continuous.add_generated_entanglement_pair(entanglement_pair)

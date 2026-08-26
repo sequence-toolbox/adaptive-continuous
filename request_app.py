@@ -63,7 +63,7 @@ class RequestAppThroughput(RequestApp):
             info (MemoryInfo): info on the qualified entangled memory.
         """
 
-        if info.state != "ENTANGLED":
+        if info.state not in ["ENTANGLED", "PURIFIED"]:
             return
 
         if info.index in self.memo_to_reservation:
@@ -191,7 +191,7 @@ class RequestAppTimeToServe(RequestApp):
             info (MemoryInfo): info on the qualified entangled memory.
         """
 
-        if info.state != "ENTANGLED":
+        if info.state not in ["ENTANGLED", "PURIFIED"]:
             return
 
         if info.index in self.memo_to_reservation:
