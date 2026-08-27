@@ -119,7 +119,7 @@ def main():
 
     for reservation, time_to_serve in sorted(time_to_serve_dict.items()):
         fidelity = fidelity_dict[reservation][0]
-        log.logger.info(f'reservation={reservation}, time to serve={time_to_serve / MILLISECOND}, fidelity={fidelity:.6f}')
+        log.logger.info(f'reservation={reservation}, time_to_serve={time_to_serve / MILLISECOND}, fidelity={fidelity:.6f}')
 
 
 if __name__ == '__main__':

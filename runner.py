@@ -2,6 +2,7 @@
 '''
 
 import time
+import os
 from subprocess import Popen, PIPE
 
 
@@ -260,11 +261,14 @@ def main_10_30_24():
 
 # for 2 node line topology
 def main_11_27_24():
+    log_dir = "log/08.27.26.line2"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
     tasks = []
 
     command = ['python', 'main.py']
-    base_args = ["-tp", "line", "-n", "2", "-t", "10.7", "-d", "log/11.27.24.line2"]
+    base_args = ["-tp", "line", "-n", "2", "-t", "10.7", "-d", log_dir]
 
     memory_adaptive = [0, 5]
     seed = list(range(20))
@@ -304,7 +308,6 @@ def main_11_27_24():
                 else:
                     get_output(p)
             ps = new_ps
-
 
 
 # for 20 node bottleneck topology
@@ -397,7 +400,7 @@ def main_11_29_24():
 
 
 if __name__ == '__main__':
-    # main_11_27_24()
+    main_11_27_24()
     # main_11_28_24()
-    main_11_29_24()
+    # main_11_29_24()
 
