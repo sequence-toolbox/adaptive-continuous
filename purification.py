@@ -24,6 +24,27 @@ class BBPSSW_Circuit_Adaptive(BBPSSWCircuit):
         super().__init__(owner, name, kept_memo, meas_memo)
         self.protocol_type = BBPSSW_CIRCUIT_ADAPTIVE
 
+    def start(self) -> None:
+        """Method to start entanglement purification.
+
+        Run the circuit below on two pairs of entangled memories on both sides of protocol. (Original implementation)
+
+        Side Effects:
+            May update parameters of kept memory.
+            Will send message to other protocol instance.
+        """
+
+        # check the status of entanglement
+        # for adaptive protocol, 'start' process may be scheduled after rule expiration
+        kept_memo_ent_node = self.kept_memo.entangled_memory["node_id"]
+        meas_memo_ent_node = self.meas_memo.entangled_memory["node_id"]
+        if kept_memo_ent_node is None or meas_memo_ent_node is None:
+            log.logger.info(
+                f'Purification failed, because the memories {kept_memo_ent_node}, {meas_memo_ent_node} is None, no entanglement.')
+            return
+
+        super().start()
+
     def received_message(self, src: str, msg: BBPSSWMessage) -> None:
         # check the status of entanglement
         if self.meas_memo.entangled_memory['node_id'] is None or self.kept_memo.entangled_memory['node_id'] is None:
@@ -67,6 +88,27 @@ class BBPSSW_BDS_Adaptive(BBPSSW_BDS):
         """
         super().__init__(owner, name, kept_memo, meas_memo, is_twirled)
         self.protocol_type = BBPSSW_BDS_ADAPTIVE
+
+    def start(self) -> None:
+        """Method to start entanglement purification.
+
+        Run the circuit below on two pairs of entangled memories on both sides of protocol. (Original implementation)
+
+        Side Effects:
+            May update parameters of kept memory.
+            Will send message to other protocol instance.
+        """
+
+        # check the status of entanglement
+        # for adaptive protocol, 'start' process may be scheduled after rule expiration
+        kept_memo_ent_node = self.kept_memo.entangled_memory["node_id"]
+        meas_memo_ent_node = self.meas_memo.entangled_memory["node_id"]
+        if kept_memo_ent_node is None or meas_memo_ent_node is None:
+            log.logger.info(
+                f'Purification failed, because the memories {kept_memo_ent_node}, {meas_memo_ent_node} is None, no entanglement.')
+            return
+
+        super().start()
 
     def received_message(self, src: str, msg: BBPSSWMessage) -> None:
         """Method to receive messages.
